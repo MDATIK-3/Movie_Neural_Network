@@ -154,6 +154,7 @@ export default function CinematchAI() {
   } | null>(null)
 
   const [recommendedMovies, setRecommendedMovies] = useState<Movie[]>([])
+  const [isLoadingPosters, setIsLoadingPosters] = useState(false)
 
   const moodOptions = [
     { id: "happy", label: "Happy", icon: Smile, description: "Uplifting, feel-good movies", color: "text-yellow-500" },

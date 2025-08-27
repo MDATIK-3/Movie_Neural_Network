@@ -89,9 +89,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "No valid movie data found in CSV file" })
     }
 
-    // Fetch actual movie posters for each movie
-    for (const movie of csvMovies) {
+    // Fetch actual movie posters for each movie in parallel with timeout
+    const posterPromises = csvMovies.map(async (movie) => {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+        
         const posterResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/movie-poster`, {
           method: 'POST',
           headers: {
@@ -100,8 +103,11 @@ export async function POST(request: NextRequest) {
           body: JSON.stringify({
             title: movie.title,
             year: movie.year
-          })
+          }),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (posterResponse.ok) {
           const posterData = await posterResponse.json();
@@ -110,10 +116,17 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (error) {
-        console.log(`[v0] Failed to fetch poster for ${movie.title}:`, error);
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.log(`[v0] Poster fetch timeout for ${movie.title}`);
+        } else {
+          console.log(`[v0] Failed to fetch poster for ${movie.title}:`, error);
+        }
         // Keep the placeholder poster if fetch fails
       }
-    }
+    });
+
+    // Wait for all poster fetches to complete (with timeout)
+    await Promise.allSettled(posterPromises);
 
     // Simulate AI recommendation generation
     await new Promise((resolve) => setTimeout(resolve, 1500))
